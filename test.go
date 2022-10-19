@@ -69,31 +69,28 @@ type ResShape struct {
 	Payer  string
 	Points int
 }
-type resLog []*ResShape
+
+// type resLog []*ResShape
 
 // Spend it
 func spendit(c *fiber.Ctx) error {
-	var res = resLog{}
-	resData := new(ResShape)
+	type spent map[string]int
+	res := spent{}
 	spendReq := new(Spendings)
 	c.BodyParser(spendReq)
 	for i, data := range db {
 		if data.Points >= spendReq.Points {
 			db[i].Points -= spendReq.Points
 			// logging for response
-			resData.Payer = data.Payer
-			resData.Points = (-1 * spendReq.Points)
+			res[data.Payer] = (-1 * spendReq.Points)
 			// building res [{resData}]
-			res = append(res, resData)
 			spendReq.Points = 0
 			println(strIt(res))
 			return c.JSON(res)
 		} else if data.Points < spendReq.Points {
 			// logging for response
-			resData.Payer = db[i].Payer
-			resData.Points = (-1 * db[i].Points)
+			res[data.Payer] = (-1 * db[i].Points)
 			// building res [{resData}]
-			res = append(res, resData)
 			// subtract from points in order of oldest to newest
 			spendReq.Points -= db[i].Points
 			db[i].Points = 0
