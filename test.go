@@ -25,7 +25,7 @@ func main() {
 	// send me calls
 	app.Post("/", process)
 	// spend points return { "payer": <string>, "points": <integer> }
-	app.Post("/spend")
+	app.Post("/spend", spendit)
 	//points balance for all payers
 	app.Get("/points", totalPoints)
 	// Open a port for HTTP reqeusts
@@ -56,6 +56,16 @@ func process(c *fiber.Ctx) error {
 	tUnix := t.UnixNano()
 	dbCRUD(data.Payer, data.Points, tUnix)
 	return c.SendString("We received: " + strIt(data))
+}
+
+// Spend it
+func spendit(c *fiber.Ctx) error {
+	type Spendings struct {
+		Points int `json:"points"`
+	}
+	spendReq := new(Spendings)
+	c.BodyParser(spendReq)
+	return c.JSON(spendReq)
 }
 
 // Handle Database CRUD
