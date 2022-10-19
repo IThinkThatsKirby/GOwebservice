@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sort"
 	"time"
 
 	// "sort"
@@ -60,8 +61,8 @@ func process(c *fiber.Ctx) error {
 
 // Spend it
 func spendit(c *fiber.Ctx) error {
+
 	// sort from old to new
-	sortDB(db)
 	type Spendings struct {
 		Points int `json:"points"`
 	}
@@ -101,10 +102,10 @@ func dbCRUD(payer string, points int, tUnix int64) {
 	//sort db by points old to new
 	// WARNING if UNIX TIME IS THE SAME IT WILL MESS WITH SORTING !!
 	// todo: fix UNIX TIME so its never identical or improve sorting
-	sortDB(db)
+	sort.Stable(ByUnix{db})
 }
 
-// BLAZINGLY FAST JSON MARSHAL in function
+// BLAZINGLY FAST JSON MARSHAL
 func strIt(data any) (str string) {
 	strByte, _ := json.Marshal(data)
 	str = string(strByte)
@@ -117,17 +118,20 @@ func totalPoints(c *fiber.Ctx) error {
 }
 
 // get payer points totals
-func updatePoints() (payerPoints map[string]int) {
+func updatePoints() DataBase {
 	// current payers points {payer: points}
-	payerPoints = map[string]int{"kirby": 0}
-
-	for i, points := range db {
-		payerPoints[points.Payer] += db[i].Points
+	sort.Stable(ByUnix{db})
+	type Totals struct {
+		DataBase `struct:"DataBase"`
 	}
-	return payerPoints
+	payerPoints := Totals{db}
+	return payerPoints.DataBase
 }
 
 // sorts the database of transactions by oldest to newest :D
 type ByUnix struct{ DataBase }
 
-func (ByUnix) Less(i, j int) bool { return db[i].UnixTime < db[j].UnixTime }
+// defining sort interface doings.
+func (db ByUnix) Len() int           { return len(db.DataBase) }
+func (db ByUnix) Swap(i, j int)      { db.DataBase[i], db.DataBase[j] = db.DataBase[j], db.DataBase[i] }
+func (db ByUnix) Less(i, j int) bool { return db.DataBase[i].UnixTime < db.DataBase[j].UnixTime }
