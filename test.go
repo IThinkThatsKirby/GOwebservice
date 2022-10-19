@@ -61,34 +61,50 @@ func process(c *fiber.Ctx) error {
 
 // Spend it
 func spendit(c *fiber.Ctx) error {
-
-	// sort from old to new
+	// incoming req shape
 	type Spendings struct {
 		Points int `json:"points"`
 	}
+	// res shape{"payer",points Spent:}
+	type ResShape struct {
+		Payer  string
+		Points int
+	}
+	type resLog []*ResShape
+	resData := new(ResShape)
+	res := resLog{}
 	spendReq := new(Spendings)
 	c.BodyParser(spendReq)
-	for i, value := range db {
-		if value.Points >= spendReq.Points {
-			db[i].Points = value.Points - spendReq.Points
-		} else if value.Points < spendReq.Points {
+	for i, data := range db {
+		if data.Points >= spendReq.Points {
+			db[i].Points -= spendReq.Points
+			// logging for response
+			resData.Payer = data.Payer
+			resData.Points = (-1 * spendReq.Points)
+			spendReq.Points = 0
+			res = append(res, resData)
+			println(strIt(res))
+			return c.JSON(res)
+		} else if db[i].Points < spendReq.Points {
 			// subtract from points in order of oldest to newest
 			spendReq.Points -= db[i].Points
 			db[i].Points = 0
-			for j := i + 1; j < len(db); {
-				if db[j].Points >= spendReq.Points {
-					db[j].Points -= spendReq.Points
-					break
-				} else if db[j].Points < spendReq.Points {
-					spendReq.Points -= db[j].Points
-					db[j].Points = 0
-					j++
-				}
-			}
+			// for j := (i + 1); j < len(db); {
+			// 	if db[j].Points >= spendReq.Points {
+			// 		db[j].Points -= spendReq.Points
+			// 		spendReq.Points = 0
+			// 	} else if db[j].Points < spendReq.Points {
+			// 		spendReq.Points -= db[j].Points
+			// 		db[j].Points = 0
+			// 		j++
+			// 	}
+			// }
+		} else if spendReq.Points == 0 {
+			continue
 		}
-		value.Points -= spendReq.Points
+		continue
 	}
-	return c.JSON(spendReq)
+	return c.JSON(res)
 }
 
 // Handle Database CRUD
@@ -118,14 +134,15 @@ func totalPoints(c *fiber.Ctx) error {
 }
 
 // get payer points totals
-func updatePoints() DataBase {
+func updatePoints() map[string]int {
 	// current payers points {payer: points}
 	sort.Stable(ByUnix{db})
-	type Totals struct {
-		DataBase `struct:"DataBase"`
+	type Totals map[string]int
+	res := Totals{}
+	for i, value := range db {
+		res[db[i].Payer] += value.Points
 	}
-	payerPoints := Totals{db}
-	return payerPoints.DataBase
+	return res
 }
 
 // sorts the database of transactions by oldest to newest :D
