@@ -24,7 +24,7 @@ func main() {
 	// --> ROUTES <--
 	// send me calls
 	app.Post("/", process)
-	// spend points return { "payer": <string>, "points": <integer> }
+	// spend points return []{ "payer": <string>, "points": -<points int> }
 	app.Post("/spend", spendit)
 	//points balance for all payers
 	app.Get("/points", totalPoints)
@@ -59,20 +59,22 @@ func process(c *fiber.Ctx) error {
 	return c.SendString("We received: " + strIt(data))
 }
 
+// incoming req shape
+type Spendings struct {
+	Points int `json:"points"`
+}
+
+// res shape{"payer",points Spent:}
+type ResShape struct {
+	Payer  string
+	Points int
+}
+type resLog []*ResShape
+
 // Spend it
 func spendit(c *fiber.Ctx) error {
-	// incoming req shape
-	type Spendings struct {
-		Points int `json:"points"`
-	}
-	// res shape{"payer",points Spent:}
-	type ResShape struct {
-		Payer  string
-		Points int
-	}
-	type resLog []*ResShape
+	var res = resLog{}
 	resData := new(ResShape)
-	res := resLog{}
 	spendReq := new(Spendings)
 	c.BodyParser(spendReq)
 	for i, data := range db {
@@ -81,26 +83,23 @@ func spendit(c *fiber.Ctx) error {
 			// logging for response
 			resData.Payer = data.Payer
 			resData.Points = (-1 * spendReq.Points)
-			spendReq.Points = 0
+			// building res [{resData}]
 			res = append(res, resData)
+			spendReq.Points = 0
 			println(strIt(res))
 			return c.JSON(res)
-		} else if db[i].Points < spendReq.Points {
+		} else if data.Points < spendReq.Points {
+			// logging for response
+			resData.Payer = db[i].Payer
+			resData.Points = (-1 * db[i].Points)
+			// building res [{resData}]
+			res = append(res, resData)
 			// subtract from points in order of oldest to newest
 			spendReq.Points -= db[i].Points
 			db[i].Points = 0
-			// for j := (i + 1); j < len(db); {
-			// 	if db[j].Points >= spendReq.Points {
-			// 		db[j].Points -= spendReq.Points
-			// 		spendReq.Points = 0
-			// 	} else if db[j].Points < spendReq.Points {
-			// 		spendReq.Points -= db[j].Points
-			// 		db[j].Points = 0
-			// 		j++
-			// 	}
-			// }
-		} else if spendReq.Points == 0 {
-			continue
+		}
+		if spendReq.Points == 0 {
+			return c.JSON(res)
 		}
 		continue
 	}
