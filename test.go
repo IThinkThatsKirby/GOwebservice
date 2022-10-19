@@ -1,7 +1,6 @@
 package main
 
 import (
-	"sort"
 	"time"
 
 	// "sort"
@@ -11,7 +10,7 @@ import (
 )
 
 // instance of mem database of in-coming calls
-var db = []DataBase{}
+var db = DataBase{}
 
 func main() {
 	// instance of Fiber w/BLAZINGLY fast JSON marshals
@@ -40,12 +39,13 @@ type Transaction struct {
 }
 
 // in memory DataBase structure
-type DataBase struct {
+type Data struct {
 	Payer  string
 	Points int
 	//sortable timestamp when transaction happened.
 	UnixTime int64
 }
+type DataBase []*Data
 
 // Handler JSON unmarsheling
 func process(c *fiber.Ctx) error {
@@ -60,26 +60,48 @@ func process(c *fiber.Ctx) error {
 
 // Spend it
 func spendit(c *fiber.Ctx) error {
+	// sort from old to new
+	sortDB(db)
 	type Spendings struct {
 		Points int `json:"points"`
 	}
 	spendReq := new(Spendings)
 	c.BodyParser(spendReq)
+	for i, value := range db {
+		if value.Points >= spendReq.Points {
+			db[i].Points = value.Points - spendReq.Points
+		} else if value.Points < spendReq.Points {
+			// subtract from points in order of oldest to newest
+			spendReq.Points -= db[i].Points
+			db[i].Points = 0
+			for j := i + 1; j < len(db); {
+				if db[j].Points >= spendReq.Points {
+					db[j].Points -= spendReq.Points
+					break
+				} else if db[j].Points < spendReq.Points {
+					spendReq.Points -= db[j].Points
+					db[j].Points = 0
+					j++
+				}
+			}
+		}
+		value.Points -= spendReq.Points
+	}
 	return c.JSON(spendReq)
 }
 
 // Handle Database CRUD
 func dbCRUD(payer string, points int, tUnix int64) {
-	crudDATA := DataBase{
+	crudDATA := Data{
 		payer,
 		points,
 		tUnix,
 	}
-	db = append(db, crudDATA)
+	db = append(db, &crudDATA)
 	//sort db by points old to new
 	// WARNING if UNIX TIME IS THE SAME IT WILL MESS WITH SORTING !!
 	// todo: fix UNIX TIME so its never identical or improve sorting
-	sortDB()
+	sortDB(db)
 }
 
 // BLAZINGLY FAST JSON MARSHAL in function
@@ -98,6 +120,7 @@ func totalPoints(c *fiber.Ctx) error {
 func updatePoints() (payerPoints map[string]int) {
 	// current payers points {payer: points}
 	payerPoints = map[string]int{"kirby": 0}
+
 	for i, points := range db {
 		payerPoints[points.Payer] += db[i].Points
 	}
@@ -105,9 +128,6 @@ func updatePoints() (payerPoints map[string]int) {
 }
 
 // sorts the database of transactions by oldest to newest :D
-func sortDB() []DataBase {
-	sort.Slice(db, func(i, j int) bool {
-		return db[i].UnixTime < db[j].UnixTime
-	})
-	return db
-}
+type ByUnix struct{ DataBase }
+
+func (ByUnix) Less(i, j int) bool { return db[i].UnixTime < db[j].UnixTime }
