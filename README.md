@@ -15,7 +15,7 @@
     POST { "payer": "DANNON", "points": 1000, "timestamp": "2020-11-02T14:00:00Z" }
 ```
 
-  2.  Spend points from oldest to newest by transaction date.
+  2.  Spend points from oldest to newest by transaction date regardless of payer.
   example:
  ```
      POST { "points": 5000 }
@@ -43,5 +43,5 @@
 
 # HTTP routes for the server:
 	POST "/" : Receives transaction call
-	POST "/spend" : Receies spend request from user(you), responds with payer points spent.
+	POST "/spend" : Receives spend request from user(you), responds with payer points spent.
 	GET"/points" : blank request will respond with current payers points.
