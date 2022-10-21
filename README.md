@@ -1,4 +1,5 @@
 # GOwebservice
+###### This was for a takehome assesment
  roast my line comments and readme PLS :D
  * If this is your first time with the GO language 
 	please visit [https://go.dev/dl/](https://go.dev/dl/)
